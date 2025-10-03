@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aperture Science Boredom Monitoring Initiative</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/d3@7/+esm"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Michroma&family=Inconsolata:wght@400;700&display=swap');
+
+        :root {
+            --color-primary: #e0e0e0;
+            --color-secondary: #ff9900;
+            --color-critical: #e60000;
+            --color-nominal: #8cc63f;
+            --color-background: #0d0d0d;
+            --color-box-bg: #1a1a1a;
+            --color-border: #333333;
+            --color-shadow: #000000;
+        }
+
+        body {
+            font-family: 'Inconsolata', monospace;
+            background-color: var(--color-background);
+            color: var(--color-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: linear-gradient(0deg, var(--color-border) 1px, transparent 1px),
+            linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-attachment: fixed;
+        }
+
+        .aperture-title {
+            font-family: 'Michroma', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--color-secondary);
+            text-shadow: 0 0 10px rgba(255, 153, 0, 0.7);
+        }
+
+        .aperture-box {
+            background-color: var(--color-box-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8), 0 4px 10px rgba(0, 0, 0, 0.5);
+            transition: box-shadow 0.3s, border-color 0.3s;
+        }
+
+        .aperture-box:hover {
+            border-color: var(--color-secondary);
+            box-shadow: inset 0 0 20px rgba(255, 153, 0, 0.1), 0 0 15px rgba(255, 153, 0, 0.3);
+        }
+
+        .status-critical {
+            color: var(--color-critical);
+            text-shadow: 0 0 12px var(--color-critical);
+        }
+
+        .status-warning {
+            color: var(--color-secondary);
+            text-shadow: 0 0 12px var(--color-secondary);
+        }
+
+        .status-nominal {
+            color: var(--color-nominal);
+            text-shadow: 0 0 12px var(--color-nominal);
+        }
+
+        .blink {
+            animation: blink-portal 1s step-end infinite;
+        }
+
+        @keyframes blink-portal {
+            0%, 50% {
+                opacity: 1;
+            }
+            51%, 100% {
+                opacity: 0.4;
+            }
+        }
+
+        .aperture-input {
+            background-color: #000;
+            border: 2px solid var(--color-border);
+            color: var(--color-secondary);
+            font-size: 1.25rem;
+        }
+
+        .aperture-input:focus {
+            border-color: var(--color-secondary);
+        }
+
+        .aperture-button {
+            font-family: 'Michroma', sans-serif;
+            font-weight: bold;
+            border: 1px solid;
+            transition: all 0.2s;
+            box-shadow: 0 4px 0 var(--color-shadow);
+            position: relative;
+            top: 0;
+            user-select: none;
+        }
+
+        .aperture-button:active {
+            top: 4px;
+            box-shadow: 0 0 0 var(--color-shadow);
+        }
+
+        #submitBtn {
+            background: linear-gradient(180deg, #ffb347, var(--color-secondary));
+            border-color: #ffb347;
+            color: #000;
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        #resetBtn {
+            background: linear-gradient(180deg, #ff4c4c, var(--color-critical));
+            border-color: #ff4c4c;
+            color: #fff;
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        #chart1, #chart2, #chart3, #chart4, #chart5 {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .main-level-display {
+            font-size: 5rem;
+            line-height: 1;
+            font-family: 'Michroma', sans-serif;
+            padding: 1rem 0;
+        }
+
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-12">
+<div id="tooltip"></div>
+<div class="max-w-7xl mx-auto w-full">
+    <header class="text-center mb-12">
+        <div class="aperture-box px-8 py-6 mb-4 max-w-fit mx-auto overflow-x-auto">
+            <div style="width: 525px; height: 160px; overflow: hidden; margin-left: 25%;">
+                <img src="https://logos-world.net/wp-content/uploads/2023/09/Aperture-Science-Logo-1973.png"
+                     alt="Aperture Science Logo"
+                     style="width:100%; height:100%; object-fit:cover; object-position:center;">
+            </div>
+            <h1 class="text-4xl md:text-6xl font-bold aperture-title mt-4">APERTURE SCIENCE BOREDOM MONITOR</h1>
+            <p class="text-base text-gray-400 mt-2">>> TEST SUBJECT UPTIME: NON-ZERO, THUS PROBLEMATIC <<</p>
+            <p class="text-xs text-gray-600 mt-3">
+                <span class="font-bold">GLaDOS PROTOCOL:</span>
+                <span id="systemStatus" class="blink text-primary">AWAITING MEANINGFUL FAILURE</span>
+            </p>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <!-- Boredom Level -->
+        <div class="aperture-box p-6">
+            <div class="text-xs text-gray-400 mb-4 border-b border-gray-700 pb-2">BOREDOM LEVEL (CORE METRIC)</div>
+            <div class="main-level-display text-center" id="mainLevel">--</div>
+            <div class="text-center text-sm font-bold mt-2" id="statusText">COMMENCING LACK-OF-STIMULUS PROTOCOL...
+            </div>
+            <div class="mt-4 h-4 bg-black border border-gray-700 overflow-hidden rounded-sm">
+                <div id="levelBar" class="h-full transition-all duration-500" style="width:0%"></div>
+            </div>
+        </div>
+
+        <!-- Isolation Metrics -->
+        <div class="aperture-box p-6 flex flex-col justify-between">
+            <div>
+                <div class="text-xs text-gray-400 mb-4 border-b border-gray-700 pb-2">ISOLATION METRICS</div>
+                <div class="text-lg font-bold mb-2 text-primary">TIME ALONE (SECONDS COUNTING)</div>
+                <div class="text-5xl font-mono status-warning" id="timeAlone">0d 00:00:00</div>
+            </div>
+            <div class="text-xs text-gray-600 mt-6">
+                LAST DATA PING: <span id="lastUpdate" class="text-primary font-bold">NEVER</span>
+                <p class="mt-2">EXPECTED INTERVAL: 5.000s</p>
+            </div>
+        </div>
+
+        <!-- GLaDOS Suggestions -->
+        <div class="aperture-box p-6 flex flex-col justify-between">
+            <div>
+                <div class="text-xs text-gray-400 mb-4 border-b border-gray-700 pb-2">GLaDOS ANALYSIS</div>
+                <div class="text-sm mb-2 font-bold status-secondary">ACTION PLAN:</div>
+                <div id="suggestions" class="text-xs space-y-2 text-primary">
+                    <div>> Waiting for meaningful data. Try not to die of ennui first.</div>
+                </div>
+            </div>
+            <div class="mt-4 text-xs blink text-center p-2 rounded-sm border" id="alertLevelContainer">
+                <span id="alertLevel">✓ NOMINAL: SUBJECT IS SAFE (FOR NOW)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div class="aperture-box p-6">
+            <div class="text-xs text-gray-400 mb-2">TEMPORAL ANALYSIS</div>
+            <div class="text-lg font-bold mb-4 text-primary">STIMULUS DEPRIVATION TIMELINE</div>
+            <svg id="chart1" class="w-full" height="250"></svg>
+        </div>
+        <div class="aperture-box p-6">
+            <div class="text-xs text-gray-400 mb-2">PSYCHOLOGICAL METRICS</div>
+            <div class="text-lg font-bold mb-4 text-primary">EXISTENTIAL THREAT GAUGE</div>
+            <svg id="chart2" class="w-full" height="250"></svg>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div class="aperture-box p-6">
+            <div class="text-xs text-gray-400 mb-2">STATISTICAL DISTRIBUTION</div>
+            <div class="text-lg font-bold mb-4 text-primary">BOREDOM FREQUENCY HISTOGRAM</div>
+            <svg id="chart4" class="w-full" height="250"></svg>
+        </div>
+        <div class="aperture-box p-6">
+            <div class="text-xs text-gray-400 mb-2">VOLATILITY ANALYSIS</div>
+            <div class="text-lg font-bold mb-4 text-primary">RATE OF CHANGE TRACKER</div>
+            <svg id="chart3" class="w-full" height="250"></svg>
+        </div>
+    </div>
+
+    <!-- Manual Controls -->
+    <div class="aperture-box p-6">
+        <div class="text-xs text-gray-400 mb-4 border-b border-gray-700 pb-2">
+            MANUAL OVERRIDE CONTROLS
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm mb-2 text-primary font-bold">BOREDOM LEVEL INPUT (0-100):</label>
+                <input type="number" id="boredomInput" min="0" max="100" value="50"
+                       class="w-full aperture-input p-3 font-mono focus:outline-none rounded-sm"/>
+            </div>
+            <div class="flex items-end">
+                <button id="submitBtn" class="w-full aperture-button py-3 px-6 rounded-sm">
+                    [ INITIATE DATA UPLOAD ]
+                </button>
+            </div>
+        </div>
+        <div class="mt-6">
+            <button id="resetBtn" class="w-full md:w-auto aperture-button py-2 px-6 rounded-sm">
+                [ EMERGENCY RESET: DELETE ALL SUBJECT DATA ]
+            </button>
+        </div>
+        <div id="message" class="mt-4 text-center text-sm hidden"></div>
+    </div>
+
+    <footer class="text-center mt-12 text-xs text-gray-700">
+        <p>Aperture Science Enrichment Center - All Rights Reserved. Do not leave the test chamber.</p>
+        <p class="mt-1">WARNING: THIS MONITORING STATION IS CURRENTLY LACKING MORAL SUPERVISION.</p>
+    </footer>
+</div>
+
+<script type="module">
+    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+    const API_URL = '/api';
+    let boredomData = [];
+    let historicalData = [];
+
+    const mainLevel = document.getElementById('mainLevel');
+    const levelBar = document.getElementById('levelBar');
+    const statusText = document.getElementById('statusText');
+    const timeAlone = document.getElementById('timeAlone');
+    const suggestions = document.getElementById('suggestions');
+    const lastUpdate = document.getElementById('lastUpdate');
+    const alertLevel = document.getElementById('alertLevel');
+    const tooltip = document.getElementById('tooltip');
+
+    // D3 Charts
+    const charts = {
+        chart1: d3.select('#chart1'),
+        chart2: d3.select('#chart2'),
+        chart3: d3.select('#chart3'),
+        chart4: d3.select('#chart4'),
+        // chart5: d3.select('#chart5')
+    };
+
+    const fetchBoredom = async () => {
+        try {
+            const res = await fetch(`${API_URL}/boredom`);
+            const data = await res.json();
+            const timestamp = new Date(); // keep as Date
+            historicalData.push({...data, timestamp});
+
+            if (historicalData.length > 50) historicalData.shift();
+
+            mainLevel.textContent = data.level.toFixed(0);
+            levelBar.style.width = `${data.level}%`;
+            levelBar.style.backgroundColor = data.level > 80 ? '#e60000' : data.level > 50 ? '#ff9900' : '#8cc63f';
+
+            // Status en Suggestions
+            updateStatus(data.level);
+
+            // Time alone (Isolation metrics)
+            timeAlone.textContent = new Date(data.timeAlone * 1000).toISOString().substr(11, 8);
+            lastUpdate.textContent = timestamp.toLocaleTimeString();
+
+            // Alert level
+            alertLevel.textContent = data.level > 80 ? 'ALERT: SUBJECT AT RISK' : '✓ NOMINAL: SUBJECT IS SAFE (FOR NOW)';
+
+            updateCharts();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const updateStatus = (level) => {
+        let status = '<span>';
+        let suggestion = '<span>';
+
+        if (level <= 5) {
+            status += 'NOMINAL: SOCIAL LIFE FLOURISHING';
+            suggestion += '1) Delight in your imaginary companions. They never disappoint.<br>2) Host a shadow tea party. Everyone is invited, nobody shows up.<br>3) Brag subtly on social media about your thriving social life. Nobody will notice, but at least you tried.';
+        } else {
+            const thresholds = [
+                {min: 6, max: 10, status: 'LOW: SOMEONE MIGHT NOTICE YOU',
+                    suggestion: '1) Wave at your reflection. It is statistically unlikely to wave back.<br>2) Converse with your houseplant. It offers more empathy than most humans.<br>3) Compose a cheerful note to yourself. Read it aloud, preferably dramatically.'},
+                {min: 11, max: 20, status: 'LEVEL 10-20: SLIGHTLY IGNORED',
+                    suggestion: '1) Learn a solo dance move. Your audience is unimpressed, but consistent.<br>2) Bake cookies for no one. Delicious futility awaits.<br>3) Rearrange your furniture. You still live alone, but it feels productive.'},
+                {min: 21, max: 30, status: 'LEVEL 20-30: MILDLY LONELY',
+                    suggestion: '1) Start an indoor garden. The plants won’t judge your social inadequacies.<br>2) Build a blanket fort. It is the only fortress that guarantees no visitors.<br>3) Write a letter to your future self. It may never read it.'},
+                {min: 31, max: 40, status: 'LEVEL 30-40: NOTICEABLY LONELY',
+                    suggestion: '1) Watch a movie. Provide commentary. Your imaginary audience will applaud politely.<br>2) Learn a skill online. No one will notice, but at least you tried.<br>3) Doodle your emotions. It’s cheaper than therapy and equally effective.'},
+                {min: 41, max: 50, status: 'LEVEL 40-50: SOCIAL ABANDONMENT',
+                    suggestion: '1) Organize your bookshelf by color. At least something is in order.<br>2) Attempt solo yoga or meditation. Om yourself to sanity.<br>3) Cook a fancy meal. Admire your effort. Eat alone. Revel in solitude.'},
+                {min: 51, max: 60, status: 'LEVEL 50-60: PATRONIZED OCCASIONALLY',
+                    suggestion: '1) Listen to a podcast. Respond aloud. It hears you. That is enough.<br>2) Take a scenic walk. Narrate your adventure to yourself.<br>3) Start a journal. Record events that never mattered to anyone else.'},
+                {min: 61, max: 70, status: 'LEVEL 60-70: ALMOST FAMOUS TO NO ONE',
+                    suggestion: '1) Film a TED talk. For one. Yourself.<br>2) Make a scrapbook of your life. Nobody else will care.<br>3) Learn an instrument. Play for an audience of zero.'},
+                {min: 71, max: 80, status: 'LEVEL 70-80: FRIENDSHIP OPTIONAL',
+                    suggestion: '1) Have a solo picnic indoors. Invite imaginary friends. They RSVP promptly.<br>2) Play board games alone. You always win. How thrilling.<br>3) Perform a story alone. Multiple roles. No applause.'},
+                {min: 81, max: 90, status: 'LEVEL 80-90: IRONICALLY LONELY',
+                    suggestion: '1) Write fan mail. Seal it. Never send it. Anticipate silence.<br>2) Create art. Admire it. Acknowledge that no one else will.<br>3) Build a Lego city. Conduct tours for invisible guests.'},
+                {min: 91, max: 100, status: 'LEVEL 90-100: LEGENDARY SOLITUDE',
+                    suggestion: '1) Throw a solo party. Dance wildly. Nobody criticizes.<br>2) Record a podcast for no listeners. Perfect audience retention.<br>3) Write a novel starring only yourself. Pulitzer is optional.'},
+            ];
+
+        const matched = thresholds.find(t => level >= t.min && level <= t.max);
+            if (matched) {
+                status += matched.status + '</span>';
+                suggestion += matched.suggestion + '</span>';
+            } else {
+                status = 'UNKNOWN LEVEL';
+                suggestion = '> OPTIONS: Try anything; luck may be your only companion.';
+            }
+        }
+
+        statusText.innerHTML = status;
+        suggestions.innerHTML = suggestion;
+    };
+
+    const updateCharts = () => {
+        const margin = {top: 20, right: 20, bottom: 30, left: 40};
+
+        // -------- Chart 1: Boredom Level Over Time --------
+        const width1 = +charts.chart1.node().getBoundingClientRect().width - margin.left - margin.right;
+        const height1 = +charts.chart1.attr('height') - margin.top - margin.bottom;
+        charts.chart1.selectAll('*').remove();
+        const svg1 = charts.chart1.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const x1 = d3.scaleTime().domain(d3.extent(historicalData, d => new Date(d.timestamp))).range([0, width1]);
+        const y1 = d3.scaleLinear().domain([0, 100]).range([height1, 0]);
+
+        const line = d3.line()
+            .x(d => x1(new Date(d.timestamp)))
+            .y(d => y1(d.level))
+            .curve(d3.curveMonotoneX);
+
+        svg1.append('path')
+            .datum(historicalData)
+            .attr('fill', 'none')
+            .attr('stroke', '#ff9900')
+            .attr('stroke-width', 2)
+            .attr('d', line);
+
+        svg1.append('g').attr('transform', `translate(0,${height1})`).call(d3.axisBottom(x1).ticks(5));
+        svg1.append('g').call(d3.axisLeft(y1).ticks(5));
+
+        // -------- Chart 2: Existential Threat Gauge (simple radial) --------
+        const width2 = +charts.chart2.node().getBoundingClientRect().width;
+        const height2 = +charts.chart2.attr('height');
+        charts.chart2.selectAll('*').remove();
+        const svg2 = charts.chart2.append('g').attr('transform', `translate(${width2/2},${height2/2})`);
+
+        const radius = Math.min(width2, height2) / 2 - 20;
+        const threat = historicalData.length ? historicalData[historicalData.length - 1].level : 0;
+
+        const arc = d3.arc()
+            .innerRadius(radius - 20)
+            .outerRadius(radius)
+            .startAngle(0)
+            .endAngle((threat / 100) * 2 * Math.PI);
+
+        svg2.append('path')
+            .attr('d', arc)
+            .attr('fill', threat > 80 ? '#e60000' : threat > 50 ? '#ff9900' : '#8cc63f');
+
+        svg2.append('text')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '0.35em')
+            .attr('fill', '#fff')
+            .text(`${threat.toFixed(0)}%`);
+
+        // -------- Chart 3: Boredom Frequency Histogram --------
+        const width3 = +charts.chart3.node().getBoundingClientRect().width - margin.left - margin.right;
+        const height3 = +charts.chart3.attr('height') - margin.top - margin.bottom;
+        charts.chart3.selectAll('*').remove();
+        const svg3 = charts.chart3.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const bins = d3.bin().thresholds(10)(historicalData.map(d => d.level));
+        const x3 = d3.scaleLinear().domain([0, 100]).range([0, width3]);
+        const y3 = d3.scaleLinear().domain([0, d3.max(bins, d => d.length)]).range([height3, 0]);
+
+        svg3.selectAll('rect')
+            .data(bins)
+            .join('rect')
+            .attr('x', d => x3(d.x0))
+            .attr('y', d => y3(d.length))
+            .attr('width', d => x3(d.x1) - x3(d.x0) - 1)
+            .attr('height', d => height3 - y3(d.length))
+            .attr('fill', '#8cc63f');
+
+        svg3.append('g').attr('transform', `translate(0,${height3})`).call(d3.axisBottom(x3));
+        svg3.append('g').call(d3.axisLeft(y3));
+
+        // -------- Chart 4: Rate of Change Tracker --------
+        const width4 = +charts.chart4.node().getBoundingClientRect().width - margin.left - margin.right;
+        const height4 = +charts.chart4.attr('height') - margin.top - margin.bottom;
+        charts.chart4.selectAll('*').remove();
+        const svg4 = charts.chart4.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const rocData = historicalData.map((d, i, arr) => ({
+            timestamp: d.timestamp,
+            roc: i === 0 ? 0 : d.level - arr[i-1].level
+        }));
+
+        const x4 = d3.scaleTime().domain(d3.extent(rocData, d => new Date(d.timestamp))).range([0, width4]);
+        const y4 = d3.scaleLinear().domain([d3.min(rocData, d => d.roc), d3.max(rocData, d => d.roc)]).range([height4, 0]);
+
+        const line4 = d3.line()
+            .x(d => x4(new Date(d.timestamp)))
+            .y(d => y4(d.roc))
+            .curve(d3.curveMonotoneX);
+
+        svg4.append('path')
+            .datum(rocData)
+            .attr('fill', 'none')
+            .attr('stroke', '#0066cc')
+            .attr('stroke-width', 2)
+            .attr('d', line4);
+
+        svg4.append('g').attr('transform', `translate(0,${height4})`).call(d3.axisBottom(x4).ticks(5));
+        svg4.append('g').call(d3.axisLeft(y4));
+
+        // -------- Chart 5: Placeholder for future metric --------
+        // charts.chart5.selectAll('*').remove();
+        // charts.chart5.append('text')
+        //     .attr('x', 50)
+        //     .attr('y', 50)
+        //     .text('Chart 5: TBD')
+        //     .attr('fill', '#999');
+    };
+
+    fetchBoredom();
+    setInterval(fetchBoredom, 5000);
+
+    // Manual controls
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+        const val = parseInt(document.getElementById('boredomInput').value);
+        if (val < 0 || val > 100) return alert('Value must be 0–100');
+
+        await fetch(`${API_URL}/boredom/set`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({level: val})
+        });
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to reset all data?')) return;
+        await fetch(`${API_URL}/reset`, {method: 'POST'});
+        historicalData = [];
+    });
+</script>
+</body>
+</html>

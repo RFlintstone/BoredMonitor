@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bored-o-meter-app
+    ports:
+      - "80:5000"
+    networks:
+      - bored_net
+    restart: always
+
+networks:
+  bored_net:
+    driver: bridge

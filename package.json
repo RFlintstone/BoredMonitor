@@ -1,0 +1,36 @@
+{
+  "name": "bored-o-meter",
+  "version": "1.0.0",
+  "description": "Fullstack boredom tracker",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "vite",
+    "build:frontend": "vite build",
+    "start": "node dist/server.js",
+    "build:backend": "tsc",
+    "build": "npm run build:frontend && npm run build:backend"
+  },
+  "dependencies": {
+    "@types/d3-dispatch": "^3.0.7",
+    "cors": "^2.8.5",
+    "d3": "^7.9.0",
+    "express": "^4.19.2",
+    "luxon": "^3.7.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/d3": "^7.4.3",
+    "@types/express": "^4.17.21",
+    "@types/luxon": "^3.7.1",
+    "@types/node": "^20.14.9",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^8.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
+  }
+}
