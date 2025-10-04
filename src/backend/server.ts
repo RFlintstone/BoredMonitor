@@ -142,7 +142,7 @@ async function updateState(
 function calculateDecay(state: Omit<BoredomState, '_id'>): { needsUpdate: boolean; newLevel: number } {
     const now = Date.now();
     const timeElapsed = now - state.lastUpdateTime;
-    const decayAmount = Math.floor(timeElapsed / 3600000); // 1 per hour
+    const decayAmount = Math.floor(timeElapsed / 1800000); // 2 per hour (1 per 30 min)
 
     if (decayAmount > 0) {
         const newLevel = Math.max(0, state.level - decayAmount);
@@ -151,18 +151,18 @@ function calculateDecay(state: Omit<BoredomState, '_id'>): { needsUpdate: boolea
     return { needsUpdate: false, newLevel: state.level };
 }
 
-async function applyDecayIfNeeded() {
-    const state = await getState();
-    const { needsUpdate, newLevel } = calculateDecay(state);
-
-    // Only write to DB if decay actually happened
-    if (needsUpdate) {
-        await updateState({
-            level: newLevel,
-            lastUpdateTime: Date.now()
-        });
-    }
-}
+// async function applyDecayIfNeeded() {
+//     const state = await getState();
+//     const { needsUpdate, newLevel } = calculateDecay(state);
+//
+//     // Only write to DB if decay actually happened
+//     if (needsUpdate) {
+//         await updateState({
+//             level: newLevel,
+//             lastUpdateTime: Date.now()
+//         });
+//     }
+// }
 
 // --- Express setup ---
 const app = express();
